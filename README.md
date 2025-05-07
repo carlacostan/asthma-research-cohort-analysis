@@ -48,9 +48,8 @@ This project analyses healthcare data to identify patients suitable for an asthm
 ## Key Findings
 
 - LS99 and S72 are the postcode areas with highest patient counts
-- Many patients have asthma diagnoses (398 records)
+- Many patients have asthma diagnoses (398)
 - Large number of patients (982) are smokers so were excluded
-- Patient inclusion
 
 ## Technical Approach
 
