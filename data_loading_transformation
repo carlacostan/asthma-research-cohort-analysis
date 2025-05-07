@@ -293,3 +293,15 @@ FOREIGN KEY (registration_guid) REFERENCES patient(registration_guid);
 ALTER TABLE medication_clean
 ADD CONSTRAINT FK_medication_patient
 FOREIGN KEY (registration_guid) REFERENCES patient(registration_guid);
+
+
+/* Not working due to duplicate codes:
+ALTER TABLE medication_clean
+ADD CONSTRAINT FK_medication_clinical_codes_snomed
+FOREIGN KEY (snomed_concept_id) REFERENCES clinical_codes_clean(snomed_concept_id);
+
+ Not working due to missing codes:
+ALTER TABLE medication_clean
+ADD CONSTRAINT FK_medication_clinical_codes
+FOREIGN KEY (emis_code_id) REFERENCES clinical_codes_clean(code_id);
+*/
