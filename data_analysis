@@ -2,51 +2,29 @@
 Part 1: Using the patient data provided identify how many patients there are for each given postcode area to check which area would be best to use for the population you are looking for. Patient counts should be reviewed by gender to make sure there's enough distribution across genders.
 */
 
-SELECT
-    SUM(CASE WHEN opt_out_93c1_flag = 'true' THEN 1 ELSE 0 END) AS opt_out_93c1_count,
-    SUM(CASE WHEN opt_out_9nd19nu09nu4_flag = 'true' THEN 1 ELSE 0 END) AS opt_out_9nd19nu09nu4_count,
-    SUM(CASE WHEN opt_out_9nd19nu0_flag = 'true' THEN 1 ELSE 0 END) AS opt_out_9nd19nu0_count,
-    SUM(CASE WHEN opt_out_9nu0_flag = 'true' THEN 1 ELSE 0 END) AS opt_out_9nu0_count
-FROM 
-    observation_clean;
-
--- Improved query with proper boolean flag handling
-WITH opted_out_patients AS (
-    SELECT DISTINCT p.registration_guid
-    FROM patient p
-    JOIN observation_clean o ON p.registration_guid = o.registration_guid
-    WHERE o.opt_out_93c1_flag = 'true'
-       OR o.opt_out_9nd19nu09nu4_flag = 'true'
-       OR o.opt_out_9nd19nu0_flag = 'true'
-       OR o.opt_out_9nu0_flag = 'true'
-)
 SELECT 
     LEFT(p.postcode, CHARINDEX(' ', p.postcode + ' ') - 1) AS postcode_area,
     
-    -- Count total patients and by gender
+    -- Total patient count
     COUNT(*) AS total_patients,
+
+    -- Gender breakdown
     SUM(CASE WHEN gender = 'Male' THEN 1 ELSE 0 END) AS male_count,
     SUM(CASE WHEN gender = 'Female' THEN 1 ELSE 0 END) AS female_count,
     SUM(CASE WHEN gender = 'Indeterminate' THEN 1 ELSE 0 END) AS indeterminate_count,
     SUM(CASE WHEN gender = 'Not Known' THEN 1 ELSE 0 END) AS not_known_count,
     SUM(CASE WHEN gender NOT IN ('Male', 'Female', 'Indeterminate', 'Not Known') 
              OR gender IS NULL THEN 1 ELSE 0 END) AS other_count,
-    
-    -- Calculate gender distribution percentages with consistent formatting
+
+    -- Gender percentages
     FORMAT(100.0 * SUM(CASE WHEN gender = 'Male' THEN 1 ELSE 0 END) / COUNT(*), 'N2') AS male_percentage,
     FORMAT(100.0 * SUM(CASE WHEN gender = 'Female' THEN 1 ELSE 0 END) / COUNT(*), 'N2') AS female_percentage,
     FORMAT(100.0 * SUM(CASE WHEN gender = 'Indeterminate' THEN 1 ELSE 0 END) / COUNT(*), 'N2') AS indeterminate_percentage,
     FORMAT(100.0 * SUM(CASE WHEN gender = 'Not Known' THEN 1 ELSE 0 END) / COUNT(*), 'N2') AS not_known_percentage,
     FORMAT(100.0 * SUM(CASE WHEN gender NOT IN ('Male', 'Female', 'Indeterminate', 'Not Known') 
-                           OR gender IS NULL THEN 1 ELSE 0 END) / COUNT(*), 'N2') AS other_percentage,
-    
-    -- Count eligible patients (not opted out)
-    COUNT(*) - SUM(CASE WHEN o.registration_guid IS NOT NULL THEN 1 ELSE 0 END) AS eligible_patients,
-    FORMAT(100.0 * (COUNT(*) - SUM(CASE WHEN o.registration_guid IS NOT NULL THEN 1 ELSE 0 END)) / COUNT(*), 'N2') AS eligible_percentage
+                           OR gender IS NULL THEN 1 ELSE 0 END) / COUNT(*), 'N2') AS other_percentage
 FROM 
     patient p
-LEFT JOIN 
-    opted_out_patients o ON p.registration_guid = o.registration_guid
 WHERE 
     p.date_of_death IS NULL 
     AND p.postcode IS NOT NULL 
@@ -60,64 +38,8 @@ ORDER BY
 -- Check how many patients are in the top 2 postcode areas
 -- Result LS99, S72
 
-SELECT TOP 2
-    LEFT(postcode, CHARINDEX(' ', postcode + ' ') - 1) AS postcode_area,
-    COUNT(*) AS patient_count
-FROM 
-    patient
-WHERE 
-    date_of_death IS NULL
-    AND postcode IS NOT NULL 
-    AND postcode <> ''
-GROUP BY 
-    LEFT(postcode, CHARINDEX(' ', postcode + ' ') - 1)
-ORDER BY 
-    COUNT(*) DESC;
-
--- Check how many patients have asthma
-SELECT COUNT(DISTINCT p.registration_guid) AS asthma_patient_count
-FROM 
-    patient p
-JOIN 
-    observation_clean o ON p.registration_guid = o.registration_guid
-JOIN 
-    clinical_codes_clean c ON o.snomed_concept_id = c.snomed_concept_id
-WHERE 
-    c.refset_simple_id = '999012891000230104'
-    AND o.end_date IS NULL;
-
--- Check how many patients have the required medications
-SELECT COUNT(DISTINCT p.registration_guid) AS medication_patient_count  
-FROM 
-    patient p
-JOIN 
-    medication_clean m ON p.registration_guid = m.registration_guid
-LEFT JOIN 
-    clinical_codes_clean c ON m.snomed_concept_id = c.snomed_concept_id
-                          OR m.emis_code_id = c.code_id
-WHERE 
-    (m.emis_code_id IN ('591221000033116', '717321000033118', '1215621000033114', 
-                      '972021000033115', '1223821000033118')
-    OR m.snomed_concept_id IN ('129490002', '108606009', '702408004', 
-                              '702801003', '704459002')
-    OR c.parent_code_id IN ('591221000033116', '717321000033118', '1215621000033114', 
-                          '972021000033115', '1223821000033118'));
-
--- Check exclusion counts
-SELECT 
-    COUNT(DISTINCT p.registration_guid) AS smokers_count
-FROM 
-    patient p
-JOIN 
-    observation_clean o ON p.registration_guid = o.registration_guid
-JOIN 
-    clinical_codes_clean c ON o.snomed_concept_id = c.snomed_concept_id
-WHERE 
-    c.refset_simple_id = '999004211000230104'
-    AND o.end_date IS NULL;
-
-
 -- Part 2: Find eligible patients for asthma research study
+
 SELECT 
     m.emis_registration_organisation_guid AS organisation,
     p.registration_guid,
@@ -132,11 +54,12 @@ FROM
 LEFT JOIN 
     medication_clean m ON p.registration_guid = m.registration_guid
 WHERE 
+    -- Inclusion Criteria
     -- In top 2 postcode areas
     LEFT(p.postcode, CHARINDEX(' ', p.postcode + ' ') - 1) IN ('LS99', 'S72')
     -- Living patients
     AND p.date_of_death IS NULL
-    -- With asthma (using optimized join with indexed columns)
+    -- With current asthma diagnosis
     AND p.registration_guid IN (
         SELECT o.registration_guid
         FROM observation_clean o
@@ -144,7 +67,23 @@ WHERE
         WHERE c.refset_simple_id = '999012891000230104'
         AND o.end_date IS NULL
     )
-    -- Not a smoker
+    -- Prescribed required medications in the last 30 years
+    AND p.registration_guid IN (
+        SELECT m.registration_guid
+        FROM medication_clean m
+        LEFT JOIN clinical_codes_clean c 
+               ON m.snomed_concept_id = c.snomed_concept_id
+               OR m.emis_code_id = c.code_id
+        WHERE m.emis_code_id IN ('591221000033116', '717321000033118', '1215621000033114', 
+                                 '972021000033115', '1223821000033118')
+           OR m.snomed_concept_id IN ('129490002', '108606009', '702408004', 
+                                      '702801003', '704459002')
+           OR c.parent_code_id IN ('591221000033116', '717321000033118', '1215621000033114', 
+                                   '972021000033115', '1223821000033118')
+    )
+
+    -- Exclusion Criteria
+    -- Currently a smoker
     AND p.registration_guid NOT IN (
         SELECT o.registration_guid
         FROM observation_clean o
@@ -152,7 +91,7 @@ WHERE
         WHERE c.refset_simple_id = '999004211000230104'
         AND o.end_date IS NULL
     )
-    -- Not underweight
+    -- Weight under 40kg
     AND p.registration_guid NOT IN (
         SELECT o.registration_guid
         FROM observation_clean o
@@ -160,7 +99,7 @@ WHERE
         AND TRY_CONVERT(FLOAT, o.numericvalue) < 40
         AND o.end_date IS NULL
     )
-    -- No COPD
+    -- Has COPD
     AND p.registration_guid NOT IN (
         SELECT o.registration_guid
         FROM observation_clean o
@@ -168,14 +107,14 @@ WHERE
         WHERE c.refset_simple_id = '999011571000230107'
         AND o.end_date IS NULL
     )
-    -- Not opted out
+    -- Opted out of research or record sharing
     AND p.registration_guid NOT IN (
-        SELECT o.registration_guid
+        SELECT DISTINCT o.registration_guid
         FROM observation_clean o
         WHERE o.opt_out_93c1_flag = 'true'
-        OR o.opt_out_9nd19nu09nu4_flag = 'true'
-        OR o.opt_out_9nd19nu0_flag = 'true'
-        OR o.opt_out_9nu0_flag = 'true'
+           OR o.opt_out_9nd19nu09nu4_flag = 'true'
+           OR o.opt_out_9nd19nu0_flag = 'true'
+           OR o.opt_out_9nu0_flag = 'true'
     )
 GROUP BY 
     m.emis_registration_organisation_guid,
