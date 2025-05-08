@@ -3,26 +3,24 @@ Part 1: Using the patient data provided identify how many patients there are for
 */
 
 SELECT 
-    LEFT(p.postcode, CHARINDEX(' ', p.postcode + ' ') - 1) AS postcode_area,
+LEFT(p.postcode, CHARINDEX(' ', p.postcode + ' ') - 1) AS postcode_area,
     
-    -- Total patient count
-    COUNT(*) AS total_patients,
+-- Total patient count
+COUNT(*) AS total_patients,
 
-    -- Gender breakdown
-    SUM(CASE WHEN gender = 'Male' THEN 1 ELSE 0 END) AS male_count,
-    SUM(CASE WHEN gender = 'Female' THEN 1 ELSE 0 END) AS female_count,
-    SUM(CASE WHEN gender = 'Indeterminate' THEN 1 ELSE 0 END) AS indeterminate_count,
-    SUM(CASE WHEN gender = 'Not Known' THEN 1 ELSE 0 END) AS not_known_count,
-    SUM(CASE WHEN gender NOT IN ('Male', 'Female', 'Indeterminate', 'Not Known') 
-             OR gender IS NULL THEN 1 ELSE 0 END) AS other_count,
+SUM(CASE WHEN gender = 'Male' THEN 1 ELSE 0 END) AS male_count,
+SUM(CASE WHEN gender = 'Female' THEN 1 ELSE 0 END) AS female_count,
+SUM(CASE WHEN gender = 'Indeterminate' THEN 1 ELSE 0 END) AS indeterminate_count,
+SUM(CASE WHEN gender = 'Not Known' THEN 1 ELSE 0 END) AS not_known_count,
+SUM(CASE WHEN gender NOT IN ('Male', 'Female', 'Indeterminate', 'Not Known') 
+            OR gender IS NULL THEN 1 ELSE 0 END) AS other_count,
 
-    -- Gender percentages
-    FORMAT(100.0 * SUM(CASE WHEN gender = 'Male' THEN 1 ELSE 0 END) / COUNT(*), 'N2') AS male_percentage,
-    FORMAT(100.0 * SUM(CASE WHEN gender = 'Female' THEN 1 ELSE 0 END) / COUNT(*), 'N2') AS female_percentage,
-    FORMAT(100.0 * SUM(CASE WHEN gender = 'Indeterminate' THEN 1 ELSE 0 END) / COUNT(*), 'N2') AS indeterminate_percentage,
-    FORMAT(100.0 * SUM(CASE WHEN gender = 'Not Known' THEN 1 ELSE 0 END) / COUNT(*), 'N2') AS not_known_percentage,
-    FORMAT(100.0 * SUM(CASE WHEN gender NOT IN ('Male', 'Female', 'Indeterminate', 'Not Known') 
-                           OR gender IS NULL THEN 1 ELSE 0 END) / COUNT(*), 'N2') AS other_percentage
+-- Percentages
+FORMAT(100.0 * SUM(CASE WHEN gender = 'Male' THEN 1 ELSE 0 END) / COUNT(*), 'N2') AS male_percentage,
+FORMAT(100.0 * SUM(CASE WHEN gender = 'Female' THEN 1 ELSE 0 END) / COUNT(*), 'N2') AS female_percentage,
+FORMAT(100.0 * SUM(CASE WHEN gender = 'Indeterminate' THEN 1 ELSE 0 END) / COUNT(*), 'N2') AS indeterminate_percentage,
+FORMAT(100.0 * SUM(CASE WHEN gender NOT IN ('Male', 'Female', 'Indeterminate') 
+                       OR gender IS NULL THEN 1 ELSE 0 END) / COUNT(*), 'N2') AS unknown_percentage
 FROM 
     patient p
 WHERE 
@@ -32,7 +30,6 @@ WHERE
 GROUP BY 
     LEFT(p.postcode, CHARINDEX(' ', p.postcode + ' ') - 1)
 ORDER BY 
-    COUNT(*) DESC;
 
 ------------------------------------------------------------------------------------
 -- Check how many patients are in the top 2 postcode areas
@@ -50,21 +47,17 @@ SELECT
     p.gender
 FROM 
     patient p
--- Join with medication to get organisation ID
 LEFT JOIN 
     medication_clean m ON p.registration_guid = m.registration_guid
 WHERE 
     -- Inclusion Criteria
-    -- In top 2 postcode areas
     LEFT(p.postcode, CHARINDEX(' ', p.postcode + ' ') - 1) IN ('LS99', 'S72')
-    -- Living patients
     AND p.date_of_death IS NULL
-    -- With current asthma diagnosis
     AND p.registration_guid IN (
         SELECT o.registration_guid
         FROM observation_clean o
         JOIN clinical_codes_clean c ON o.snomed_concept_id = c.snomed_concept_id
-        WHERE c.refset_simple_id = '999012891000230104'
+        WHERE c.refset_simple_id = '999012891000230104' --asthma diagnosis
         AND o.end_date IS NULL
     )
     -- Prescribed required medications in the last 30 years
@@ -74,12 +67,13 @@ WHERE
         LEFT JOIN clinical_codes_clean c 
                ON m.snomed_concept_id = c.snomed_concept_id
                OR m.emis_code_id = c.code_id
-        WHERE m.emis_code_id IN ('591221000033116', '717321000033118', '1215621000033114', 
-                                 '972021000033115', '1223821000033118')
-           OR m.snomed_concept_id IN ('129490002', '108606009', '702408004', 
-                                      '702801003', '704459002')
-           OR c.parent_code_id IN ('591221000033116', '717321000033118', '1215621000033114', 
-                                   '972021000033115', '1223821000033118')
+        WHERE 
+            TRY_CONVERT(DATE, m.effective_date) >= DATEADD(YEAR, -30, GETDATE()) --or use recorded_date, might be later than effective_date however
+        AND (
+            m.emis_code_id IN ('591221000033116', '717321000033118', '1215621000033114','972021000033115', '1223821000033118')
+           OR m.snomed_concept_id IN ('129490002', '108606009', '702408004', '702801003', '704459002')
+           OR c.parent_code_id IN ('591221000033116', '717321000033118', '1215621000033114','972021000033115', '1223821000033118')  
+    
     )
 
     -- Exclusion Criteria
