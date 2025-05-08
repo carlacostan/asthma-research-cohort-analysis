@@ -77,7 +77,7 @@ WHERE
     )
 
     -- Exclusion Criteria
-    -- Currently a smoker
+    -- Smoker
     AND p.registration_guid NOT IN (
         SELECT o.registration_guid
         FROM observation_clean o
@@ -101,7 +101,7 @@ WHERE
         WHERE c.refset_simple_id = '999011571000230107'
         AND o.end_date IS NULL
     )
-    -- Opted out of research or record sharing
+    -- Opted out of research
     AND p.registration_guid NOT IN (
         SELECT DISTINCT o.registration_guid
         FROM observation_clean o

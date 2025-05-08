@@ -6,6 +6,13 @@ SQL solution for selecting eligible patients for an asthma research study based 
 
 This project analyses healthcare data to identify patients suitable for an asthma research study. The analysis focuses on selecting patients who meet specific clinical criteria while ensuring appropriate gender distribution.
 
+## Data Sources
+
+- `patient.csv`
+- `observation.csv` (combined from 12 files)
+- `medication.csv` (combined from 15 files)
+- `clinical_codes.csv`
+
 ## Steps
 
 1. **Install and set up Microsoft SQL Server 2019 Express** and Microsoft SQL Server Management Studio for data and database management. This combination was chosen because:
@@ -19,7 +26,7 @@ This project analyses healthcare data to identify patients suitable for an asthm
 
 3. **Load data** using one of these methods:
 
-> **_NOTE:_**: For multiple .csv files, CLI `copy` commands were used first
+> **_NOTE:_**: For multiple .csv files, CLI `copy` commands were used first to combine them into one file
 
    - SQL Server Import Wizard
    - BULK INSERT: Alternative for handling large datasets
@@ -59,6 +66,17 @@ This project analyses healthcare data to identify patients suitable for an asthm
 
     This handles non-standard formats.
 
+## Testing Approach
+
+- Each cleaned table (`_clean`) was validated using `SELECT COUNT(*)`, `IS NULL`, and `GROUP BY` to check for missing or duplicate key values
+- Eligibility criteria application was tested step-by-step:
+  - First filtered for postcode
+  - Then tested asthma diagnosis alone
+  - Then applied one exclusion at a time
+- Used `TOP 10` previews and manual record reviews (e.g., by `registration_guid`) to validate results
+- Manually cross-referenced EMIS codes against official SNOMED list to verify medication mappings
+
+
 ## Technical Highlights
 
 - Created cleaned data tables using `SELECT INTO`, `ROW_NUMBER()`, and `DROP COLUMN` techniques.
@@ -82,7 +100,7 @@ Postcodes with highest patient counts:
 
 -  Resolved duplicate `code_id`s using `ROW_NUMBER()` partitioning and removed `rn`, however when attempting to add a Foreign Key on `emis_code_id` it did not work due to 2,664 unmatched values in clinical codes.
 - `medication_valid` view was initially created to enforce foreign key integrity, but excluded too many valid rows, so  reverted to using `medication_clean`, which preserved useful data.
--  `parent_code_id` did not affect the outcome of part 2, however this condition was kept in case of future data is loaded.
+- The `parent_code_id` condition had no effect on the current results but was kept in the query to allow for future data updates.
 
 ## Future Improvements
 
@@ -92,3 +110,4 @@ Postcodes with highest patient counts:
 - Enrich the dataset with additional clinical data sources (e.g. allergy history, long-term conditions, hospital admissions) to improve cohort representativeness.
 - Expand the geographical scope beyond 1–2 postcode areas to avoid sampling bias.
 - Review which columns are needed and which are unnecessary and adjust the scripts for creating cleaned data tables.
+- VARCHAR type was used across all columns to allow easy loading of the .csv files for  early-stage exploration in this case. However a standardisation step could be added to the script to improve usability for future users and ensure consistency in data types. This is noted in data_analysis.sql in the meantime.

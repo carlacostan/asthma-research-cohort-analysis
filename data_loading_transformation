@@ -1,3 +1,10 @@
+/*
+NOTE:
+All columns were initially cast as VARCHAR to allow flexible imports.
+If reusing this script with typed data, update field types to match expected data model
+e.g. effective_date DATE, quantity INT, dose FLOAT, etc.
+*/
+
 -- Create patient table with all columns as VARCHAR
 CREATE TABLE patient (
     age VARCHAR(250) NULL,
