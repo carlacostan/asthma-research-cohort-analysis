@@ -13,6 +13,15 @@ This project analyses healthcare data to identify patients suitable for an asthm
 - `medication.csv` (combined from 15 files)
 - `clinical_codes.csv`
 
+## Running the Scripts
+
+ > **_NOTE:_**: The SQL scripts are currently separated into two files:
+
+- `data_loading_transformation.sql`: Handles table creation, data cleaning, and constraint setup
+- `data_analysis.sql`: Performs analysis and generates final outputs
+
+In SQL Server Management Studio (SSMS), these scripts **must be executed in sequence** to avoid errors related to missing tables, columns, etc. It is recommended to run both in order in the same SSMS session.
+
 ## Steps
 
 1. **Install and set up Microsoft SQL Server 2019 Express** and Microsoft SQL Server Management Studio for data and database management. This combination was chosen because:
@@ -106,8 +115,8 @@ Postcodes with highest patient counts:
 
 - Implement indexing on key columns to enhance query performance and ensure scalability as the dataset grows.
 - Automate data loading or report generation (e.g by using Aitflow DAGs).
-- Review the criteria for eligibility.
-- Enrich the dataset with additional clinical data sources (e.g. allergy history, long-term conditions, hospital admissions) to improve cohort representativeness.
+- Review the criteria for eligibility in case it is too strict.
+- Enrich the dataset with additional clinical data sources to improve cohort representativeness.
 - Expand the geographical scope beyond 1–2 postcode areas to avoid sampling bias.
 - Review which columns are needed and which are unnecessary and adjust the scripts for creating cleaned data tables.
 - VARCHAR type was used across all columns to allow easy loading of the .csv files for  early-stage exploration in this case. However a standardisation step could be added to the script to improve usability for future users and ensure consistency in data types. This is noted in data_analysis.sql in the meantime.
